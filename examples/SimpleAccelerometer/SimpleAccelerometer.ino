@@ -19,6 +19,9 @@ void setup() {
   while (!Serial);
   Serial.println("Started");
 
+  IMU.setAcellConfig(BMI2_ACC_ODR_100HZ, BMI2_ACC_RANGE_2G, BMI2_ACC_NORMAL_AVG4);
+
+
   if (!IMU.begin()) {
     Serial.println("Failed to initialize IMU!");
     while (1);
@@ -35,13 +38,13 @@ void setup() {
 void loop() {
   float x, y, z;
 
-//  if (IMU.accelerationAvailable()) {
-//    IMU.readAcceleration(x, y, z);
-//
-//    Serial.print(x);
-//    Serial.print('\t');
-//    Serial.print(y);
-//    Serial.print('\t');
-//    Serial.println(z);
+  if (IMU.accelerationAvailable()) {
+    IMU.readAcceleration(x, y, z);
+    Serial.print(millis());Serial.print('\t');
+    Serial.print(x);
+    Serial.print('\t');
+    Serial.print(y);
+    Serial.print('\t');
+    Serial.println(z);
   }
 }

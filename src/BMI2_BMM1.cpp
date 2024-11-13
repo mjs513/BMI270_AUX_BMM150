@@ -20,6 +20,48 @@ void BMI2_BMM1_Class::debug(Stream& stream){
 _debug = &stream; 
 }
 
+void BMI2_BMM1_Class::setAcellConfig(uint8_t odr, uint8_t range, uint8_t band_width)
+{
+	_acc_odr = odr;
+	_acc_range = range;
+	_acc_bwp = band_width;
+	
+	if(_acc_range == BMI2_ACC_RANGE_2G) {
+		_acc_foc = BMI2_ACC_FOC_2G_REF;
+	} else if(_acc_range == BMI2_ACC_RANGE_4G) {
+		_acc_foc = BMI2_ACC_FOC_4G_REF;
+	} else if(_acc_range == BMI2_ACC_RANGE_8G) {
+		_acc_foc = BMI2_ACC_FOC_8G_REF;
+	} else if(_acc_range == BMI2_ACC_RANGE_16G) {
+		_acc_foc = BMI2_ACC_FOC_16G_REF;
+	}
+	
+}
+
+void BMI2_BMM1_Class::setGyroConfig(uint8_t odr, uint8_t range, uint8_t band_width)
+{
+	_gyro_odr = odr;
+	_gyro_range = range;
+	_gyro_bwp = band_width;
+	
+	if(_gyro_range == BMI2_GYR_RANGE_125) {
+		_gyro_foc = BMI2_GYRO_FOC_125_DPS_REF;
+	} else if(_gyro_range == BMI2_GYR_RANGE_250) {
+		_gyro_foc = BMI2_GYRO_FOC_250_DPS_REF;
+	} else if(_gyro_range == BMI2_GYR_RANGE_500) {
+		_gyro_foc = BMI2_GYRO_FOC_500_DPS_REF;
+	} else if(_gyro_range == BMI2_GYR_RANGE_1000) {
+		_gyro_foc = BMI2_GYRO_FOC_1000_DPS_REF;
+	} else if(_gyro_range == BMI2_GYR_RANGE_2000) {
+		_gyro_foc = BMI2_GYRO_FOC_2000_DPS_REF;
+	}		
+}
+
+void BMI2_BMM1_Class::setMagConfig(uint8_t pwrmode, uint8_t preset) {
+	_mag_pwr_mode = pwrmode;
+	_mag_preset = preset;
+}
+
 int BMI2_BMM1_Class::begin(Stream * debug_port) {
 
    /* Variable to define result */
@@ -29,7 +71,7 @@ int BMI2_BMM1_Class::begin(Stream * debug_port) {
   
   /* To initialize the hal function */
   _wire->begin();
-
+  _wire->setClock(400000);
    
   accel_gyro_dev_info._wire = _wire;
   accel_gyro_dev_info.dev_addr = BMI2_I2C_PRIM_ADDR;
@@ -235,11 +277,11 @@ int8_t BMI2_BMM1_Class::bmi2_accel_set_config(struct bmi2_dev *bmi2_dev)
     if (rslt == BMI2_OK)
     {
 
-      config.cfg.acc.odr = BMI2_ACC_ODR_25HZ;
+      config.cfg.acc.odr = _acc_odr;
 
       /* Gravity range of the sensor (+/- 2G, 4G, 8G, 16G). */
-      config.cfg.acc.range = BMI2_ACC_RANGE_2G;
-      config.cfg.acc.bwp = BMI2_ACC_NORMAL_AVG4;
+      config.cfg.acc.range = _acc_range;
+      config.cfg.acc.bwp = _acc_bwp;
       config.cfg.acc.filter_perf = BMI2_PERF_OPT_MODE;
 
       /* Set the gyro configurations */
@@ -285,10 +327,10 @@ int8_t BMI2_BMM1_Class::bmi2_gyro_set_config(struct bmi2_dev *bmi2_dev)
         {
             /* The user can change the following configuration parameter according to their requirement */
             /* Output data Rate. By default ODR is set as 200Hz for gyro */
-            config.cfg.gyr.odr = BMI2_GYR_ODR_25HZ;
+            config.cfg.gyr.odr = _gyro_odr;
             /* Gyroscope Angular Rate Measurement Range.By default the range is 2000dps */
-            config.cfg.gyr.range = BMI2_GYR_RANGE_2000;
-            config.cfg.gyr.bwp = BMI2_GYR_NORMAL_MODE;
+            config.cfg.gyr.range = _gyro_range;
+            config.cfg.gyr.bwp = _gyro_bwp;
             config.cfg.gyr.noise_perf = BMI2_POWER_OPT_MODE;
             config.cfg.gyr.filter_perf = BMI2_PERF_OPT_MODE;
 
@@ -348,7 +390,9 @@ int8_t BMI2_BMM1_Class::bmi2_mag_set_config(struct bmm150_dev *dev)
     rslt = bmm150_init(dev);
 
     /* Set the power mode to normal mode. */
-    settings.pwr_mode = BMM150_POWERMODE_NORMAL;
+    settings.pwr_mode = _mag_pwr_mode;
+	settings.preset_mode = _mag_preset;
+	
     rslt = bmm150_set_op_mode(&settings, dev);
 
     rslt = bmi270_get_sensor_config(config, 1, &bmi2);
@@ -430,13 +474,42 @@ float BMI2_BMM1_Class::gyroscopeSampleRate() {
   return (1 << sens_cfg.cfg.gyr.odr) * 0.39;
 }
 
+int BMI2_BMM1_Class::getSensorData(float *values, bool raw)
+{
+struct bmi2_sens_data sensor_data = { { 0 } };
+
+    int res = bmi2_get_sensor_data(&sensor_data, &bmi2);
+
+   if(raw == false){
+		values[0] = sensor_data.acc.x* 9.8 / _acc_foc;
+		values[1]  = sensor_data.acc.y* 9.8 / _acc_foc;
+		values[2]  = sensor_data.acc.z* 9.8 / _acc_foc;
+		
+		values[3] = sensor_data.gyr.x / _gyro_foc;
+		values[4] = sensor_data.gyr.y / _gyro_foc;
+		values[5] = sensor_data.gyr.z / _gyro_foc;
+	}
+	else // raw true
+	{
+		values[0] = sensor_data.acc.x;
+		values[1]  = sensor_data.acc.y;
+		values[2]  = sensor_data.acc.z;
+		
+		values[3]  = sensor_data.gyr.x;
+		values[4] = sensor_data.gyr.y;
+		values[5] = sensor_data.gyr.z;
+	}
+    return res;
+    
+}
+
 int BMI2_BMM1_Class::readGyroAccel(imu_data_t & imu_sensor_data, bool raw){ // Results are in G (earth gravity). // Results are in degrees/second.
 struct bmi2_sens_data sensor_data = { { 0 } };
 
     int res = bmi2_get_sensor_data(&sensor_data, &bmi2);
 
    if(raw == false){
-   imu_sensor_data.acc.x = sensor_data.acc.x* 9.8 / BMI2_ACC_FOC_2G_REF;
+    imu_sensor_data.acc.x = sensor_data.acc.x* 9.8 / BMI2_ACC_FOC_2G_REF;
     imu_sensor_data.acc.y  = sensor_data.acc.y* 9.8 / BMI2_ACC_FOC_2G_REF;
     imu_sensor_data.acc.z  = sensor_data.acc.z* 9.8 / BMI2_ACC_FOC_2G_REF;
     
