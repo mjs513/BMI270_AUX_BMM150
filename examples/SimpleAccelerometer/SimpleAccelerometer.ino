@@ -14,6 +14,8 @@ History:
 
 #include "BMI270_AUX_BMM150.h"
 
+BMI2_BMM1_Class IMU(Wire);
+
 void setup() {
   Serial.begin(9600);
   while (!Serial);
